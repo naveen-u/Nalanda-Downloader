@@ -88,7 +88,7 @@ def get_credentials():
 
 def prints(str):
 	"""
-	Silent-mod-friendly print function
+	Silent mode-friendly print function
 	"""
 	if _silent is False or _silent is None:
 		print(str)
@@ -179,7 +179,7 @@ if __name__ == '__main__':
 		os.makedirs(root_directory,exist_ok = True)
 	
 	# Initializing Nalanda url and login data
-	url = 'http://nalanda.bits-pilani.ac.in/login/'
+	url = 'https://nalanda.bits-pilani.ac.in/login/index.php'
 	login_data = dict(username = username, password = password)
 	
 	prints('Connecting to Nalanda as ' + username)
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
 		# Setting up request retries
 		retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 502, 503, 504 ])
-		session.mount('http://', HTTPAdapter(max_retries=retries))
+		session.mount('https://', HTTPAdapter(max_retries=retries))
 
 		try:
 			# Send login data
@@ -200,7 +200,7 @@ if __name__ == '__main__':
 			
 			# Get main course page
 			prints('Getting list of courses...')
-			page = session.get('http://nalanda.bits-pilani.ac.in/my/', timeout=5)
+			page = session.get('https://nalanda.bits-pilani.ac.in/my/', timeout=5)
 			contents = page.text
 			
 			# Verify the contents
@@ -286,25 +286,26 @@ if __name__ == '__main__':
 				contents = page.text
 
 				# Find all sections
-				sections = contents.split('<ul class="topics">')[1].split('<aside id="block-region-side-pre"')[0]
-				regex = re.compile('<li id="section-.*?</ul></div></li>')
-				section_list = regex.findall(sections)
+				soup = BeautifulSoup(contents,'lxml')
+				section_list = soup.findAll('li','section main clearfix')
 
 				for section in section_list:
 					
 					# Get section name and path of section folder
-					soup = BeautifulSoup(section,'lxml')
-					a = soup.find('li')
-					section_name = a.get('aria-label')
+					section_name = section.attrs['aria-label']
 					section_name = section_name.replace('/', '_')
 					# Combine all "Lecture" or "Topic" sections
 					if 'Lecture' in section_name or 'Topic' in section_name:
 						section_name = 'Lectures'
 					section_path = os.path.join(dir_path,section_name)
 
+
 					# Extract links in the section
-					link_list = [link.get('href') for link in soup.findAll('a', attrs={'href': re.compile("^http://")})]
-					
+					contents = section.findAll('a')
+					link_list = []
+					for i in contents:
+						link_list.append(i.get('href'))
+
 					index = 0
 					while index < len(link_list):
 						
@@ -324,6 +325,7 @@ if __name__ == '__main__':
 						
 							# Get filename and path of downloadable file
 							filename = get_filename_from_cd(r.headers.get('content-disposition'))
+							filename = filename.strip('"')
 							file_path = os.path.join(section_path,filename)
 							
 							# Check if file already exists
