@@ -22,11 +22,12 @@ import sys
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from os.path import expanduser
 
 _silent = False
 _exit_status = 'Status: Completed'
 
-def make_config_file(root_dir = '', username = '', password = '', date_time = 'A long time ago...', status = ''):
+def make_config_file(path = '.', root_dir = '', username = '', password = '', date_time = 'A long time ago...', status = ''):
 	"""
 	Creates new config file
 	"""
@@ -34,7 +35,7 @@ def make_config_file(root_dir = '', username = '', password = '', date_time = 'A
 	config['dirs'] = {'root_dir': root_dir}
 	config['credentials'] = {'username':username, 'password':password}
 	config['last'] = {'datetime':date_time, 'status':status}
-	with open('.config.ini', 'w') as configfile:
+	with open(path, 'w') as configfile:
 	  config.write(configfile)
 
 def is_downloadable(header):
@@ -117,17 +118,19 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	# Get path of config file
-	project_dir = os.path.dirname(os.path.abspath(__file__))
-	config_path = os.path.join(project_dir, '.config.ini')
+	# project_dir = os.path.dirname(os.path.abspath(__file__))
+	# config_path = os.path.join(project_dir, '.config.ini')
+	home = expanduser("~")
+	config_path = os.path.join(home, '.nalandaConfig.ini')
 
 	# Create config file if it doesn't exist
 	if not os.path.isfile(config_path):
-		make_config_file()
+		make_config_file(config_path)
 
 	# In reset mode, set config values and exit
 	if args.reset is True:
 		username, password, root_directory = get_credentials()
-		make_config_file(root_dir = root_directory, username = username, password = password)
+		make_config_file(config_path, root_dir = root_directory, username = username, password = password)
 		sys.exit(0)
 
 	# Make silent mode active
@@ -171,8 +174,10 @@ if __name__ == '__main__':
 			print("Something's wrong with your .config file. We'll have to do this the old fashioned way.")
 			username, password, root_directory = get_credentials()
 			choice = input('Make these values default? [y/n]: ')
+			last_date = "A long time ago..."
+			status = " "
 			if choice.lower() in ['y','yes']:
-				make_config_file(root_directory, username, password)
+				make_config_file(config_path, root_directory, username, password)
 
 	# Create root directory if it doesn't already exist
 	if not os.path.isdir(root_directory):
@@ -381,10 +386,11 @@ if __name__ == '__main__':
 		# Catch other random exceptions
 		except Exception as e:
 			print('Oops! Looks like something went wrong somewhere.')
+			print(e)
 			_exit_status = "Status: Error"
 			_silent = True
 
 	# Save date, time, and status in .config
 	now = datetime.now()
-	make_config_file(root_directory, username, password, date_time = now.strftime("%Y-%m-%d %H:%M"), status = _exit_status)
+	make_config_file(config_path, root_directory, username, password, date_time = now.strftime("%Y-%m-%d %H:%M"), status = _exit_status)
 	prints('Finished updating your resources!')
